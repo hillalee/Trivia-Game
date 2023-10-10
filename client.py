@@ -33,7 +33,7 @@ def recv_message_and_parse(conn):
 	return cmd, data
 
 
-def build_send_recv_parse(conn, cmd, data=""):
+def build_send_recv_parse(conn, cmd, data):
 	build_and_send_message(conn, cmd, data)
 	return recv_message_and_parse(conn)
 
@@ -90,14 +90,13 @@ def error_and_exit(error_msg):
 
 
 def login(conn):
-	logged = False
-	while not logged:
+	while True:
 		username = input("Please enter username: \n")
 		password = input("Please enter password: \n")
 		login_pair = chatlib.join_data([username, password])
 		build_and_send_message(conn, chatlib.PROTOCOL_CLIENT["login_msg"], login_pair)
 		cmd, data = recv_message_and_parse(conn)
-		if cmd == chatlib.PROTOCOL_CLIENT["login_ok_msg"]:
+		if cmd == chatlib.PROTOCOL_SERVER["login_ok_msg"]:
 			print("Login success!")
 			break
 		else:
@@ -106,13 +105,13 @@ def login(conn):
 
 def logout(conn):
 	build_and_send_message(conn, chatlib.PROTOCOL_CLIENT["logout_msg"], "")
+	print("Logged out.")
 
 
 def main():
 	gen_socket = connect()
 	login(gen_socket)
-	command = ""
-	while command != "q":
+	while True:
 		print("""
 		Welcome to the menu! \n
 		p					play a trivia question \n
@@ -131,11 +130,11 @@ def main():
 		elif command == "u":
 			print(get_logged_users(gen_socket))
 		elif command == "q":
+			logout(gen_socket)
 			break
 		else:
 			print("Illegal input. Please try again.")
 
-	logout(gen_socket)
 	gen_socket.close()
 
 
