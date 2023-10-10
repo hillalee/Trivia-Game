@@ -28,9 +28,9 @@ SERVER_IP = "127.0.0.1"
 
 
 # HELPER SOCKET METHODS
-def build_and_send_message(conn, code, msg):
+def build_and_send_message(conn, cmd, msg=" "):
 	# copy from client
-	full_msg = chatlib.build_message(code, msg)
+	full_msg = chatlib.build_message(cmd, msg)
 	conn.send(full_msg.encode())
 	print("[SERVER] ", full_msg)  # Debug print
 
@@ -130,19 +130,17 @@ def handle_login_message(conn, data):
 	global users  # This is needed to access the same users dictionary from all functions
 	global logged_users  # To be used later
 
-	def handle_login_message(conn, data):
-		global users
+	username, password = chatlib.split_data(data, 1)
 
-		username, password = chatlib.split_data(data, 1)
-		if username in users:
-			if password == users[username]["password"]:
-				build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_ok_msg"],
-									   "Login successful. Welcome, {}!".format(username))
-				logged_users[conn] = username
-			else:
-				send_error(conn, "Error occurred. Wrong password.")
+	if username in users:
+		if users[username]["password"] == password:
+			build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_ok_msg"])
 		else:
-			send_error(conn, "Error occurred. Username not found.")
+			data = "[SERVER] Password Incorrect ..."
+			build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], data)
+	else:
+		data = "[SERVER] Username not found ..."
+		build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], data)
 
 
 def handle_client_message(conn, cmd, data):
@@ -152,12 +150,13 @@ def handle_client_message(conn, cmd, data):
 	Returns: None
 	"""
 	global logged_users  # To be used later
-	if cmd == "login_msg":
+	if cmd == chatlib.PROTOCOL_CLIENT["login_msg"]:
 		handle_login_message(conn, data)
-	if cmd == chatlib.PROTOCOL_SERVER["logout"] or "":
-		handle_logout_message(conn)
+	elif cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
+		handle_logout_message(socket_connection)
 	else:
-		send_error(conn, "Error, Unknown command.")
+		data = f'[SERVER] The cmd : {cmd} - Not Recognized ...'
+		build_and_send_message(socket_connection, chatlib.PROTOCOL_SERVER["login_failed_msg"], data)
 
 
 # Implement code ...
@@ -176,7 +175,7 @@ def main():
 			print("Accepted connection from {}".format(client_address))
 			while True:
 				cmd, data = recv_message_and_parse(client_socket)
-				if (not cmd) or cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
+				if cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
 					send_error(client_socket, ("Disconnecting from server, {} ".format(client_socket.getpeername())))
 					handle_logout_message(client_socket)
 				else:
@@ -185,8 +184,6 @@ def main():
 			print("Server terminated by user")
 			sock.close()
 			break
-		except Exception as e:
-			print(f"An error occurred: {e}")
 
 
 if __name__ == '__main__':
