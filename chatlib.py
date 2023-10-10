@@ -12,11 +12,12 @@ DATA_DELIMITER = "#"
 PROTOCOL_CLIENT = {
     "login_msg": "LOGIN",
     "logout_msg": "LOGOUT",
+    "logged_msg": "LOGGED",
     "highscore_msg": "HIGHSCORE",
-    "GET_SCORE": "MY_SCORE",
-    "GET_QUESTION": "GET_QUESTION",
-    "SEND_ANSWER": "SEND_ANSWER",
-    "logged_msg": "LOGGED"
+    "my_score_msg": "MY_SCORE",
+    "get_question_msg": "GET_QUESTION",
+    "send_answer_msg": "SEND_ANSWER"
+
 }
 
 PROTOCOL_SERVER = {
@@ -30,7 +31,7 @@ ERROR_RETURN = None
 
 def build_message(cmd, data):
     length = len(data)
-    if (cmd not in PROTOCOL_CLIENT.values()) or length > MAX_DATA_LENGTH:
+    if length > MAX_DATA_LENGTH:
         return None
     full_msg = cmd.ljust(16) + DELIMITER + str(length).zfill(4) + DELIMITER + data
     return full_msg
