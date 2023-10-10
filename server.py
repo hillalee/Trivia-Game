@@ -38,11 +38,12 @@ def build_and_send_message(conn, cmd, msg=" "):
 def recv_message_and_parse(conn):
 	try:
 		full_msg = conn.recv(1024).decode()
+
+		print("[CLIENT] ", full_msg)  # Debug print
 		cmd, data = chatlib.parse_message(full_msg)
 	except Exception:
 		cmd, data = None, None
 	finally:
-		print("[CLIENT] ", full_msg)  # Debug print
 		return cmd, data
 
 
@@ -117,7 +118,8 @@ def handle_logout_message(conn):
 	Returns: None
 	"""
 	global logged_users
-	conn.close()
+	if conn:
+		conn.close()
 
 
 def handle_login_message(conn, data):
@@ -153,10 +155,10 @@ def handle_client_message(conn, cmd, data):
 	if cmd == chatlib.PROTOCOL_CLIENT["login_msg"]:
 		handle_login_message(conn, data)
 	elif cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
-		handle_logout_message(socket_connection)
+		handle_logout_message(conn)
 	else:
 		data = f'[SERVER] The cmd : {cmd} - Not Recognized ...'
-		build_and_send_message(socket_connection, chatlib.PROTOCOL_SERVER["login_failed_msg"], data)
+		build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], data)
 
 
 # Implement code ...
