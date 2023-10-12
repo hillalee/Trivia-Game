@@ -3,29 +3,30 @@ import chatlib  # To use chatlib functions or consts, use chatlib.****
 
 SERVER_IP = "127.0.0.1"  # Our server will run on same computer as client
 SERVER_PORT = 5678
-#5678
+
+
 
 
 # HELPER SOCKET METHODS
 def build_and_send_message(conn, cmd, data=""):
 	"""
-	Builds a new message using chatlib, wanted code and message. 
-	Prints debug info, then sends it to the given socket.
-	Parameters: conn (socket object), code (str), data (str)
-	Returns: Nothing
-	"""
+    Builds a new message using chatlib, wanted code and message.
+    Prints debug info, then sends it to the given socket.
+    Parameters: conn (socket object), code (str), data (str)
+    Returns: Nothing
+    """
 	msg = chatlib.build_message(cmd, data)
-	print("Server sent: " + msg)
+	# print("Server sent: " + msg)
 	conn.send(msg.encode())
 
 
 def recv_message_and_parse(conn):
 	"""
-	Receives a new message from given socket,
-	then parses the message using chatlib.
-	Parameters: conn (socket object)
-	Returns: cmd (str) and data (str) of the received message. 
-	If error occurred, will return None, None"""
+    Receives a new message from given socket,
+    then parses the message using chatlib.
+    Parameters: conn (socket object)
+    Returns: cmd (str) and data (str) of the received message.
+    If error occurred, will return None, None"""
 	full_msg = conn.recv(1024).decode()
 	cmd, data = chatlib.parse_message(full_msg)
 	return cmd, data
@@ -57,10 +58,10 @@ def play_question(conn):
 	msg = chatlib.split_data(data, 5)
 	id, question, ans1, ans2, ans3, ans4 = msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]
 	print("""Question num. {}: {}\n 
-		1. {} \n
-		2. {} \n
-		3. {} \n
-		4. {} """.format(id, question, ans1, ans2, ans3, ans4))
+        1. {} \n
+        2. {} \n
+        3. {} \n
+        4. {} """.format(id, question, ans1, ans2, ans3, ans4))
 	answer = input("Insert answer, [1-4]: ")
 	send_ans = chatlib.join_data([id, answer])
 
@@ -75,7 +76,8 @@ def play_question(conn):
 
 
 def get_logged_users(conn):
-	return build_send_recv_parse(conn, "LOGGED", "")
+	cmd, data = build_send_recv_parse(conn, "LOGGED", "")
+	return "Logged users list: \n " + data
 
 
 def connect():
@@ -112,19 +114,41 @@ def logout(conn):
 	print("[CLIENT] Logged out.")
 
 
+def print_cool_menu():
+	print(r"""
+	->->->->->->->->->->->->->->->->->->->->->
+
+        p         Play a trivia question
+        v         View your score
+        h         View highscore
+        u         View logged users
+        q         Quit game
+        
+	->->->-->->->->->->->->->->->->->->->->->->
+
+    """)
+
+
 def main():
 	gen_socket = connect()
 	print("[CLIENT] Server is up.")
 	login(gen_socket)
+	print(r'''
+	
+	H i l a ' s
+	                  .----.
+      .---------. | == |
+      |.-"""""-.| |----|
+      ||  TRI  || | == |
+      |   VIA  || |----|
+      |'-.....-'| |::::|
+      `"")---(""` |___.|
+     /:::::::::::\" _  "
+    /:::=======:::\`\`\
+    `"""""""""""""`  '-'⠀⠀⠀⠀⠀⠀
+	''')
 	while True:
-		print("""
-		Welcome to the menu! \n
-		p					Play a trivia question \n
-		v					View your score \n
-		h					View highscore \n 
-		u					View logged users \n
-		q					Quit game \n """)
-
+		print_cool_menu()
 		command = input("Insert command here: 	")
 		try:
 			if command == "p":
