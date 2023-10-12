@@ -3,6 +3,7 @@ import chatlib  # To use chatlib functions or consts, use chatlib.****
 
 SERVER_IP = "127.0.0.1"  # Our server will run on same computer as client
 SERVER_PORT = 5678
+#5678
 
 
 # HELPER SOCKET METHODS
@@ -32,23 +33,24 @@ def recv_message_and_parse(conn):
 
 def build_send_recv_parse(conn, cmd, data):
 	build_and_send_message(conn, cmd, data)
-	return recv_message_and_parse(conn)
+	cmd, data = recv_message_and_parse(conn)
+	return cmd, data
 
 
 def get_score(conn):
-	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["GET_SCORE"], "")
+	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["my_score_msg"], "")
 	return "Current score records are: \n" + data
 
 
 def get_highscore(conn):
-	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["HIGHSCORE"], "")
+	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["highscore_msg"], "")
 	if cmd != "ALL_SCORE":
 		return chatlib.ERROR_RETURN
 	return "Highscore is: " + data
 
 
 def play_question(conn):
-	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["GET_QUESTION"], "")
+	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["get_question_msg"], "")
 	if cmd != "YOUR_QUESTION":
 		return chatlib.ERROR_RETURN
 
@@ -62,9 +64,10 @@ def play_question(conn):
 	answer = input("Insert answer, [1-4]: ")
 	send_ans = chatlib.join_data([id, answer])
 
-	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["SEND_ANSWER"], send_ans)
+	cmd, data = build_send_recv_parse(conn, chatlib.PROTOCOL_CLIENT["send_answer_msg"], send_ans)
 	if cmd == "CORRECT_ANSWER":
-		print("Good job! your answer is correct.")
+		print("Good job! your answer is correct. \n"
+			  "5 points were added to your score.")
 	elif cmd == "WRONG_ANSWER":
 		print("Wrong. the correct answer is " + data)
 	else:
