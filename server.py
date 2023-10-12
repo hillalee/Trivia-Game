@@ -3,8 +3,7 @@
 ##############################################################################
 
 from socket import *
-import select
-from typing import List
+import select, time, random
 
 import chatlib
 
@@ -35,6 +34,7 @@ def build_and_send_message(conn, cmd, msg=" "):
 	full_msg = chatlib.build_message(cmd, msg)
 	conn.send(full_msg.encode())
 	print("[SERVER] ", full_msg)  # Debug print
+	time.sleep(0.1)
 
 
 def recv_message_and_parse(conn):
@@ -55,8 +55,8 @@ def load_questions():
 	Returns: questions dictionary
 	"""
 	questions = {
-		2313: {"question": "How much is 2+2", "answers": ["3", "4", "2", "1"], "correct": 2},
-		4122: {"question": "What is the capital of France?", "answers": ["Lion", "Marseille", "Paris", "Montpellier"],
+		2313: {"question": "How much is 2+2?", "answers": ["3", "4", "2", "1"], "correct": 2},
+		4122: {"question": "What is the capital of France?", "answers": ["Lion", "Marseille", "Paris", "Montpelier"],
 			   "correct": 3}
 	}
 
@@ -101,30 +101,29 @@ def send_error(conn, error_msg):
 	Receives: socket, message error string from called function
 	Returns: None
 	"""
-	build_and_send_message(conn,chatlib.PROTOCOL_SERVER["error_msg"], error_msg)
+	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["error_msg"], error_msg)
 
 
 ##### MESSAGE HANDLING
-
-
 def handle_getscore_message(conn, username):
 	global users
 	score = users[username]["score"]
-	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["your_score_msg"], "Your score is: " + score)
+	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["your_score_msg"], str(score))
 
 
 def handle_highscore_message(conn):
 	global users
-	score = ((key, user["score"]) for key, user in users.items())
-	highscore_list = sorted(list(score), key=lambda item: item[1], reverse=True)
-	lis = "\n".join(str(highscore_list))
-	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["all_score_msg"], lis)
+	scores = [(key, user["score"]) for key, user in users.items()]
+	highscore_list = sorted(scores, key=lambda item: item[1], reverse=True)
+	highscore = "\n".join(f"{user}: {score}" for user, score in highscore_list)
+	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["all_score_msg"], highscore)
 
 
 def handle_logged_message(conn):
-	logged = List[logged_users]
-	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["loggedlist_msg"], str(logged))
-
+	global logged_users
+	logged_users_list = list(logged_users.values())
+	logged_users_str = "\n".join(logged_users_list)
+	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["loggedlist_msg"], logged_users_str)
 
 
 def handle_logout_message(conn):
@@ -163,7 +162,7 @@ def handle_login_message(conn, data):
 		build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], data)
 
 
-def handle_client_message(conn, cmd, data):
+def handle_client_message(conn, cmd, data=""):
 	"""
 	Gets message code and data and calls the right function to handle command
 	Receives: socket, message code and data
@@ -171,26 +170,59 @@ def handle_client_message(conn, cmd, data):
 	"""
 	global logged_users
 	if conn in logged_users.keys():
-		if cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
+		if cmd == "LOGOUT":
 			handle_logout_message(conn)
-		elif cmd == chatlib.PROTOCOL_CLIENT["my_score_msg"]:
+		elif cmd == "MY_SCORE":
 			handle_getscore_message(conn, logged_users[conn])
-		elif cmd == chatlib.PROTOCOL_CLIENT["highscore_msg"]:
+		elif cmd == "HIGHSCORE":
 			handle_highscore_message(conn)
-		elif cmd == chatlib.PROTOCOL_CLIENT["logged_msg"]:
+		elif cmd == "LOGGED":
 			handle_logged_message(conn)
+		elif cmd == "GET_QUESTION":
+			handle_question_message(conn)
+		elif cmd == "SEND_ANSWER":
+			handle_answer_message(conn, logged_users[conn], data)
 		else:
 			data = f'[SERVER] The cmd : {cmd} - Not Recognized ...'
-			build_and_send_message(conn, chatlib.PROTOCOL_SERVER["login_failed_msg"], data)
+			build_and_send_message(conn, chatlib.PROTOCOL_SERVER["error_msg"], data)
 	else:
-		if cmd == chatlib.PROTOCOL_CLIENT["login_msg"]:
+		if cmd == "LOGIN":
 			handle_login_message(conn, data)
 		else:
 			build_and_send_message(conn, chatlib.PROTOCOL_SERVER["error_msg"], "Error occurred during log in.")
 
 
-# Implement code ...
+def create_random_question():
+	global questions
+	questions.update(load_questions())
 
+	question_num = random.choice(list(questions.keys()))
+	question_data = questions[question_num]
+
+	question = [str(question_num), question_data["question"]]
+	question.extend(question_data["answers"])
+	question = chatlib.join_data(question)
+	return question
+
+
+def handle_question_message(conn):
+	get_question = create_random_question()
+	build_and_send_message(conn, chatlib.PROTOCOL_SERVER["your_question_msg"], get_question)
+
+
+def handle_answer_message(conn, username, data):
+	global questions, users
+
+	data = chatlib.split_data(data, 1)
+	question_number = int(data[0])
+	question_answer = int(data[-1])
+	correct_answer_index = questions[question_number]["correct"]
+
+	if question_answer == correct_answer_index:
+		users[username]["score"] += 5
+		build_and_send_message(conn, chatlib.PROTOCOL_SERVER["correct_ans_msg"], "Correct Answer!")
+	else:
+		build_and_send_message(conn, chatlib.PROTOCOL_SERVER["wrong_ans_msg"], "Wrong answer! Play again :)")
 
 def main():
 	# Initializes global users and questions dictionaries using load functions, will be used later
@@ -210,26 +242,24 @@ def main():
 			else:
 				print("[SERVER] New data from client.")
 				try:
-					while True:
-						cmd, data = recv_message_and_parse(current_socket)
-						if not cmd or not data:
-							print("Command unknown or data error. Socket terminated by user")
-							print("[SERVER] Ready for new users...")
-							client_sockets.remove(current_socket)
-							current_socket.close()
-							break
-						elif cmd == chatlib.PROTOCOL_CLIENT["logout_msg"] or data == "":
-							send_error(current_socket, ("Disconnecting from server, {} ".format(current_socket.getpeername())))
-							handle_logout_message(current_socket)
-							client_sockets.remove(current_socket)
-							current_socket.close()
-							print("[SERVER] User logged out. Ready for new users...")
-							break
-						else:
-							print("[CLIENT] ", data)
-							handle_client_message(current_socket, cmd, data)
+					cmd, data = recv_message_and_parse(current_socket)
+					if not cmd:
+						print("Command unknown or data error. Socket terminated by user")
+						print("[SERVER] Ready for new users...")
+						client_sockets.remove(current_socket)
+						current_socket.close()
+					elif cmd == chatlib.PROTOCOL_CLIENT["logout_msg"]:
+						send_error(current_socket,
+								   ("Disconnecting from server, {} ".format(current_socket.getpeername())))
+						handle_logout_message(current_socket)
+						client_sockets.remove(current_socket)
+						current_socket.close()
+						print("[SERVER] User logged out. Ready for new users...")
+					else:
+						print("[CLIENT] ", cmd, data)
+						handle_client_message(current_socket, cmd, data)
 				except Exception:
-					print("Socket terminated by user")
+					print("Exception: Socket terminated by user")
 					print("[SERVER] Ready for new users...")
 					client_sockets.remove(current_socket)
 					current_socket.close()
